@@ -18,12 +18,20 @@ import matplotlib.colors as mcolors
 def analyze_inner_structure(image_path):
     # 读取并预处理图像
     img = cv2.imread(image_path)
+    if img is None:
+        raise ValueError("无法读取图像文件")
+    
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
     # 1. 内部区域分割
     distance = ndi.distance_transform_edt(gray)
-    local_max = peak_local_max(distance, indices=False, min_distance=20)
-    markers = ndi.label(local_max)[0]
+    
+    # 修改 peak_local_max 的调用方式
+    coordinates = peak_local_max(distance, min_distance=20)
+    local_max = np.zeros_like(distance, dtype=bool)
+    local_max[tuple(coordinates.T)] = True
+    
+    markers, num_features = ndi.label(local_max)
     labels = watershed(-distance, markers, mask=gray)
     
     # 2. 纹理特征提取
@@ -35,7 +43,7 @@ def analyze_inner_structure(image_path):
     
     return {
         'labels': labels,
-        'texture_features': gabor_responses
+        'texture_features': np.array(gabor_responses)
     }
 
 def analyze_shape(image_path):

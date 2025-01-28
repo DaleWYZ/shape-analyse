@@ -19,7 +19,7 @@ spec:
         fsGroup: 2000
       containers:
       - name: shape-analyzer
-        image: shape-analyse:v1
+        image: shape-analyse:v2
         ports:
         - containerPort: 5000
         resources:
