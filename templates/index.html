@@ -1,62 +1,251 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh">
 <head>
-    <title>花朵形状分析</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能形状分析系统</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #34495e;
+            --accent-color: #2ecc71;
+            --background-color: #f5f6fa;
+            --card-background: rgba(255, 255, 255, 0.95);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: var(--background-color);
+            background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1IiBoZWlnaHQ9IjUiPgo8cmVjdCB3aWR0aD0iNSIgaGVpZ2h0PSI1IiBmaWxsPSIjZmZmIj48L3JlY3Q+CjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiNjY2MiPjwvcmVjdD4KPC9zdmc+');
+            color: var(--secondary-color);
+            line-height: 1.6;
+        }
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 2rem;
         }
-        .upload-form {
-            margin-bottom: 20px;
-            padding: 20px;
-            border: 1px solid #ddd;
+
+        .header {
+            text-align: center;
+            padding: 2rem 0;
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: white;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .upload-section {
+            background: var(--card-background);
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .upload-section form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .custom-file-upload {
+            display: inline-block;
+            padding: 12px 24px;
+            background: var(--primary-color);
+            color: white;
             border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
         }
-        .results {
+
+        .custom-file-upload:hover {
+            background: #357abd;
+            transform: translateY(-2px);
+        }
+
+        .submit-btn {
+            padding: 12px 24px;
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .submit-btn:hover {
+            background: #27ae60;
+            transform: translateY(-2px);
+        }
+
+        .results-section {
+            display: none;
+            background: var(--card-background);
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .result-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
         }
+
         .result-item {
-            border: 1px solid #ddd;
-            padding: 10px;
-            border-radius: 5px;
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         }
+
+        .result-item h3 {
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+
         canvas {
-            border: 1px solid #eee;
-            margin: 10px 0;
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        #shapeFeatures {
+            text-align: left;
+        }
+
+        .feature-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .feature-item:last-child {
+            border-bottom: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .result-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>花朵形状分析系统</h1>
-        
-        <div class="upload-form">
-            <form id="uploadForm" enctype="multipart/form-data">
-                <input type="file" name="image" accept="image/*" required>
-                <button type="submit">分析图片</button>
+        <div class="header">
+            <h1>智能形状分析系统</h1>
+            <p>上传图片，获取专业的形状分析结果</p>
+        </div>
+
+        <div class="upload-section">
+            <form id="uploadForm">
+                <div class="file-input-wrapper">
+                    <label class="custom-file-upload">
+                        <input type="file" name="image" accept="image/*" required>
+                        选择图片
+                    </label>
+                </div>
+                <button type="submit" class="submit-btn">开始分析</button>
             </form>
         </div>
-        
-        <div class="results">
-            <div class="result-item">
-                <h3>原始图片与轮廓</h3>
-                <canvas id="originalCanvas"></canvas>
-            </div>
-            <div class="result-item">
-                <h3>几何形状线条</h3>
-                <canvas id="shapeCanvas"></canvas>
-            </div>
-            <div class="result-item">
-                <h3>形状特征</h3>
-                <div id="shapeFeatures"></div>
-            </div>
-            <div class="result-item">
-                <h3>内部结构</h3>
-                <canvas id="innerStructureCanvas"></canvas>
+
+        <div class="loading">
+            <div class="loading-spinner"></div>
+            <p>正在分析中，请稍候...</p>
+        </div>
+
+        <div class="results-section" id="results">
+            <h2>分析结果</h2>
+            <div class="result-grid">
+                <div class="result-item">
+                    <h3>原始图片与轮廓</h3>
+                    <canvas id="originalCanvas"></canvas>
+                </div>
+                <div class="result-item">
+                    <h3>几何形状线条</h3>
+                    <canvas id="shapeCanvas"></canvas>
+                </div>
+                <div class="result-item">
+                    <h3>形状特征</h3>
+                    <div id="shapeFeatures"></div>
+                </div>
+                <div class="result-item">
+                    <h3>内部结构</h3>
+                    <canvas id="innerStructureCanvas"></canvas>
+                </div>
             </div>
         </div>
     </div>
@@ -66,6 +255,10 @@
             e.preventDefault();
             const formData = new FormData(e.target);
             
+            // 显示加载动画
+            document.querySelector('.loading').style.display = 'block';
+            document.querySelector('.results-section').style.display = 'none';
+            
             try {
                 const response = await fetch('/analyze', {
                     method: 'POST',
@@ -74,14 +267,21 @@
                 
                 const data = await response.json();
                 if (data.status === 'success') {
+                    // 隐藏加载动画
+                    document.querySelector('.loading').style.display = 'none';
+                    // 显示结果区域
+                    document.querySelector('.results-section').style.display = 'block';
                     // 更新画布显示
                     updateCanvases(data.results);
                     // 显示特征数据
-                    displayFeatures(data.results);
+                    updateFeatures(data.results);
+                } else {
+                    alert(data.error || '分析失败，请重试');
                 }
             } catch (error) {
-                console.error('Error:', error);
-                alert('分析过程中出现错误');
+                alert('发生错误：' + error.message);
+            } finally {
+                document.querySelector('.loading').style.display = 'none';
             }
         };
 
@@ -102,13 +302,25 @@
             drawInnerStructure(innerCtx, results.inner_structure);
         }
 
-        function displayFeatures(results) {
+        function updateFeatures(results) {
             const featuresDiv = document.getElementById('shapeFeatures');
             featuresDiv.innerHTML = `
-                <p>圆度: ${results.circularity.toFixed(3)}</p>
-                <p>对称性: ${results.symmetry.toFixed(3)}</p>
-                <p>规则度: ${results.regularity.toFixed(3)}</p>
-                <p>内部区域数: ${results.inner_regions}</p>
+                <div class="feature-item">
+                    <span>圆度：</span>
+                    <span>${(results.circularity * 100).toFixed(2)}%</span>
+                </div>
+                <div class="feature-item">
+                    <span>对称性：</span>
+                    <span>${(results.symmetry * 100).toFixed(2)}%</span>
+                </div>
+                <div class="feature-item">
+                    <span>规则度：</span>
+                    <span>${(results.regularity * 100).toFixed(2)}%</span>
+                </div>
+                <div class="feature-item">
+                    <span>内部区域数：</span>
+                    <span>${results.inner_regions}</span>
+                </div>
             `;
         }
     </script>
