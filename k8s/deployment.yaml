@@ -14,9 +14,10 @@ spec:
       labels:
         app: shape-analyzer
     spec:
+      nodeName: 10.0.88.201
       containers:
       - name: shape-analyzer
-        image: shape-analyzer:latest
+        image: shape-analyse:v1
         ports:
         - containerPort: 5000
         resources:
