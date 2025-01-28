@@ -6,6 +6,10 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
+# 创建非 root 用户
+RUN groupadd -g 2000 appgroup && \
+    useradd -u 1000 -g appgroup -s /bin/bash appuser
+
 # 设置工作目录
 WORKDIR /app
 
@@ -15,12 +19,19 @@ COPY requirements.txt .
 # 安装Python依赖
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 创建模板目录
-RUN mkdir templates
+# 创建必要的目录并设置权限
+RUN mkdir templates uploads && \
+    chown -R appuser:appgroup /app
 
 # 复制应用代码和模板
 COPY . .
 COPY templates/* templates/
+
+# 设置目录权限
+RUN chown -R appuser:appgroup /app
+
+# 切换到非 root 用户
+USER appuser
 
 # 暴露端口
 EXPOSE 5000
