@@ -295,53 +295,96 @@
         };
 
         function updateCanvases(results) {
-            // 更新原始图片与轮廓
-            const originalCanvas = document.getElementById('originalCanvas');
-            const ctx = originalCanvas.getContext('2d');
-            drawContours(originalCanvas, results.contours);
-            
-            // 更新几何形状线条
-            const shapeCanvas = document.getElementById('shapeCanvas');
-            drawGeometricShape(shapeCanvas, results.shape_features);
-            
-            // 更新内部结构
-            const innerCanvas = document.getElementById('innerStructureCanvas');
-            drawInnerStructure(innerCanvas, results.inner_structure);
+            try {
+                console.log('Updating canvases with results:', results);  // 调试日志
+                
+                if (!results || !results.contours) {
+                    throw new Error('缺少轮廓数据');
+                }
+                
+                // 更新原始图片与轮廓
+                const originalCanvas = document.getElementById('originalCanvas');
+                if (!originalCanvas) {
+                    throw new Error('找不到原始图片画布');
+                }
+                drawContours(originalCanvas, results.contours);
+                
+                // 更新几何形状线条
+                const shapeCanvas = document.getElementById('shapeCanvas');
+                if (!shapeCanvas || !results.shape_features) {
+                    throw new Error('找不到形状画布或缺少形状特征数据');
+                }
+                drawGeometricShape(shapeCanvas, results.shape_features);
+                
+                // 更新内部结构
+                const innerCanvas = document.getElementById('innerStructureCanvas');
+                if (!innerCanvas || !results.inner_structure) {
+                    throw new Error('找不到内部结构画布或缺少内部结构数据');
+                }
+                drawInnerStructure(innerCanvas, results.inner_structure);
+            } catch (error) {
+                console.error('更新画布时发生错误:', error);
+                alert(`更新显示时发生错误: ${error.message}`);
+            }
         }
 
         function drawContours(canvas, contours) {
-            const ctx = canvas.getContext('2d');
-            
-            // 设置画布大小
-            canvas.width = 400;
-            canvas.height = 400;
-            
-            // 清空画布
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // 设置轮廓样式
-            ctx.strokeStyle = '#4a90e2';
-            ctx.lineWidth = 2;
-            
-            // 开始绘制轮廓
-            ctx.beginPath();
-            
-            // 遍历轮廓点
-            contours.forEach((point, index) => {
-                const [x, y] = point[0];
-                const scaledX = (x / 1000) * canvas.width;
-                const scaledY = (y / 1000) * canvas.height;
-                
-                if (index === 0) {
-                    ctx.moveTo(scaledX, scaledY);
-                } else {
-                    ctx.lineTo(scaledX, scaledY);
+            try {
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    throw new Error('无法获取画布上下文');
                 }
-            });
-            
-            // 闭合路径
-            ctx.closePath();
-            ctx.stroke();
+                
+                // 设置画布大小
+                canvas.width = 400;
+                canvas.height = 400;
+                
+                // 清空画布
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // 验证轮廓数据
+                if (!Array.isArray(contours) || contours.length === 0) {
+                    throw new Error('无效的轮廓数据');
+                }
+                
+                // 设置轮廓样式
+                ctx.strokeStyle = '#4a90e2';
+                ctx.lineWidth = 2;
+                
+                // 开始绘制轮廓
+                ctx.beginPath();
+                
+                // 计算缩放因子
+                const points = contours;
+                const xValues = points.map(p => p[0]);
+                const yValues = points.map(p => p[1]);
+                const minX = Math.min(...xValues);
+                const maxX = Math.max(...xValues);
+                const minY = Math.min(...yValues);
+                const maxY = Math.max(...yValues);
+                
+                const scaleX = (canvas.width - 40) / (maxX - minX);
+                const scaleY = (canvas.height - 40) / (maxY - minY);
+                const scale = Math.min(scaleX, scaleY);
+                
+                // 绘制轮廓
+                points.forEach((point, index) => {
+                    const x = (point[0] - minX) * scale + 20;
+                    const y = (point[1] - minY) * scale + 20;
+                    
+                    if (index === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+                
+                ctx.closePath();
+                ctx.stroke();
+            } catch (error) {
+                console.error('绘制轮廓时发生错误:', error);
+                throw error;
+            }
         }
 
         function drawGeometricShape(canvas, features) {

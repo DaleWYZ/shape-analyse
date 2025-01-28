@@ -20,6 +20,13 @@ spec:
       containers:
       - name: shape-analyzer
         image: shape-analyse:v2
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: FLASK_ENV
+          value: "production"
+        - name: MAX_CONTENT_LENGTH
+          value: "16777216"  # 16MB
         ports:
         - containerPort: 5000
         resources:
@@ -37,17 +44,30 @@ spec:
           runAsGroup: 2000
         readinessProbe:
           httpGet:
-            path: /
+            path: /health
             port: 5000
-          initialDelaySeconds: 5
-          periodSeconds: 5
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
         livenessProbe:
           httpGet:
-            path: /
+            path: /health
             port: 5000
-          initialDelaySeconds: 15
+          initialDelaySeconds: 20
           periodSeconds: 20
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          failureThreshold: 30
+          periodSeconds: 10
       volumes:
       - name: uploads
         emptyDir:
-          medium: Memory 
+          medium: Memory
+          sizeLimit: "100Mi" 
