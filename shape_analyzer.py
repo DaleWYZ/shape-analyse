@@ -89,27 +89,67 @@ def analyze_shape(image_path):
             # 获取最大轮廓
             main_contour = max(contours, key=cv2.contourArea)
             
+            # 检查轮廓点数量
+            if len(main_contour) < 5:
+                logger.warning(f"轮廓点数量不足: {len(main_contour)} < 5")
+                # 使用多边形近似增加点数
+                epsilon = 0.01 * cv2.arcLength(main_contour, True)
+                main_contour = cv2.approxPolyDP(main_contour, epsilon, True)
+                
+                # 如果仍然不足5个点，插值生成更多点
+                if len(main_contour) < 5:
+                    logger.info("使用插值生成更多轮廓点")
+                    # 将现有点连接成闭合曲线，并在点之间插值
+                    refined_contour = []
+                    for i in range(len(main_contour)):
+                        p1 = main_contour[i][0]
+                        p2 = main_contour[(i + 1) % len(main_contour)][0]
+                        # 在两点之间插入额外的点
+                        refined_contour.append([p1])
+                        mid_point = [(p1[0] + p2[0]) // 2, (p1[1] + p2[1]) // 2]
+                        refined_contour.append([mid_point])
+                    main_contour = np.array(refined_contour)
+            
+            logger.info(f"处理后的轮廓点数量: {len(main_contour)}")
+            
             # 计算基本特征
             logger.debug("计算基本形状特征")
             area = cv2.contourArea(main_contour)
             perimeter = cv2.arcLength(main_contour, True)
             
-            # 拟合椭圆
-            ellipse = cv2.fitEllipse(main_contour)
+            try:
+                # 拟合椭圆
+                ellipse = cv2.fitEllipse(main_contour)
+                _, (width, height), angle = ellipse
+            except cv2.error as e:
+                logger.error(f"拟合椭圆失败: {str(e)}")
+                # 使用替代方法计算特征
+                rect = cv2.minAreaRect(main_contour)
+                _, (width, height), angle = rect
             
             # 计算圆度
-            circularity = 4 * np.pi * area / (perimeter * perimeter)
+            circularity = 4 * np.pi * area / (perimeter * perimeter) if perimeter > 0 else 0
             
             # 计算长宽比
-            _, (width, height), _ = ellipse
-            aspect_ratio = max(width, height) / min(width, height)
+            aspect_ratio = max(width, height) / min(width, height) if min(width, height) > 0 else 1
             
             logger.debug("计算高级形状特征")
             # 转换为二值图像用于scikit-image分析
             binary = thresh > 0
             label_img = measure.label(binary)
             regions = regionprops(label_img)
-            main_region = regions[0]
+            
+            if regions:
+                main_region = regions[0]
+            else:
+                # 如果无法获取区域属性，使用基本特征
+                main_region = type('Region', (), {
+                    'orientation': angle * np.pi / 180,
+                    'eccentricity': aspect_ratio - 1,
+                    'equivalent_diameter': np.sqrt(4 * area / np.pi),
+                    'solidity': 1.0,
+                    'extent': area / (width * height) if width * height > 0 else 1
+                })
             
             # 添加内部结构分析
             logger.debug("分析内部结构")
@@ -132,8 +172,8 @@ def analyze_shape(image_path):
                 "偏心率": main_region.eccentricity,
                 "等效直径": main_region.equivalent_diameter,
                 "致密度": main_region.solidity,
-                "主轴长度": main_region.major_axis_length,
-                "次轴长度": main_region.minor_axis_length,
+                "主轴长度": width,
+                "次轴长度": height,
                 "形状规则度": main_region.extent,
                 "对称性指数": main_region.eccentricity,
                 "内部区域数量": unique_regions,
