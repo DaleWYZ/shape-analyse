@@ -262,10 +262,19 @@
             try {
                 const response = await fetch('/analyze', {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    headers: {
+                        'Accept': 'application/json'
+                    }
                 });
                 
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const data = await response.json();
+                console.log('Received data:', data); // 添加调试日志
+                
                 if (data.status === 'success') {
                     // 隐藏加载动画
                     document.querySelector('.loading').style.display = 'none';
@@ -276,12 +285,12 @@
                     // 显示特征数据
                     updateFeatures(data.results);
                 } else {
-                    alert(data.error || '分析失败，请重试');
+                    throw new Error(data.error || '分析失败，请重试');
                 }
             } catch (error) {
-                alert('发生错误：' + error.message);
-            } finally {
+                console.error('Error details:', error); // 添加详细错误日志
                 document.querySelector('.loading').style.display = 'none';
+                alert(`处理过程中发生错误：${error.message}`);
             }
         };
 

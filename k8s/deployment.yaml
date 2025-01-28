@@ -35,6 +35,18 @@ spec:
         securityContext:
           runAsUser: 1000
           runAsGroup: 2000
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 15
+          periodSeconds: 20
       volumes:
       - name: uploads
         emptyDir:

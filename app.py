@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, render_template, send_file
+from flask_cors import CORS
 import os
 import numpy as np
 import cv2
@@ -20,6 +21,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+CORS(app)
 
 # 确保上传目录存在
 UPLOAD_FOLDER = 'uploads'
@@ -100,7 +102,9 @@ def analyze_image():
                     }
                 }
                 logger.info("返回分析结果")
-                return jsonify(response_data)
+                response = jsonify(response_data)
+                response.headers.add('Access-Control-Allow-Origin', '*')
+                return response
             else:
                 logger.warning("无法识别形状")
                 return jsonify({'error': '无法识别形状'}), 400
@@ -108,7 +112,9 @@ def analyze_image():
         except Exception as e:
             logger.error(f"处理图片时发生错误: {str(e)}")
             logger.error(traceback.format_exc())
-            return jsonify({'error': f'处理图片时发生错误: {str(e)}'}), 500
+            error_response = jsonify({'error': f'处理图片时发生错误: {str(e)}'})
+            error_response.headers.add('Access-Control-Allow-Origin', '*')
+            return error_response, 500
         finally:
             # 清理临时文件
             try:
@@ -121,7 +127,9 @@ def analyze_image():
     except Exception as e:
         logger.error(f"请求处理过程中发生错误: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({'error': f'服务器错误: {str(e)}'}), 500
+        error_response = jsonify({'error': f'服务器错误: {str(e)}'})
+        error_response.headers.add('Access-Control-Allow-Origin', '*')
+        return error_response, 500
 
 if __name__ == '__main__':
     logger.info("启动应用服务器")
