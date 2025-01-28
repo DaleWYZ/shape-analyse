@@ -296,7 +296,7 @@
 
         function updateCanvases(results) {
             try {
-                console.log('Updating canvases with results:', results);  // 调试日志
+                console.log('Received results:', results);  // 添加完整的结果日志
                 
                 if (!results || !results.contours) {
                     throw new Error('缺少轮廓数据');
@@ -309,21 +309,30 @@
                 }
                 drawContours(originalCanvas, results.contours);
                 
+                // 验证形状特征数据
+                if (!results.shape_features) {
+                    console.error('Missing shape_features:', results);
+                    throw new Error('缺少形状特征数据');
+                }
+                
                 // 更新几何形状线条
                 const shapeCanvas = document.getElementById('shapeCanvas');
-                if (!shapeCanvas || !results.shape_features) {
-                    throw new Error('找不到形状画布或缺少形状特征数据');
+                if (!shapeCanvas) {
+                    throw new Error('找不到形状画布');
                 }
                 drawGeometricShape(shapeCanvas, results.shape_features);
                 
                 // 更新内部结构
-                const innerCanvas = document.getElementById('innerStructureCanvas');
-                if (!innerCanvas || !results.inner_structure) {
-                    throw new Error('找不到内部结构画布或缺少内部结构数据');
+                if (results.inner_structure) {
+                    const innerCanvas = document.getElementById('innerStructureCanvas');
+                    if (!innerCanvas) {
+                        throw new Error('找不到内部结构画布');
+                    }
+                    drawInnerStructure(innerCanvas, results.inner_structure);
                 }
-                drawInnerStructure(innerCanvas, results.inner_structure);
             } catch (error) {
                 console.error('更新画布时发生错误:', error);
+                console.error('完整结果数据:', results);
                 alert(`更新显示时发生错误: ${error.message}`);
             }
         }
@@ -426,6 +435,9 @@
                     throw new Error('无法获取画布上下文');
                 }
                 
+                // 打印接收到的特征数据
+                console.log('Received features:', features);
+                
                 // 设置画布大小
                 canvas.width = 400;
                 canvas.height = 400;
@@ -434,15 +446,35 @@
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 
                 // 验证特征数据
-                if (!features.center || !features.major_axis || !features.minor_axis || !features.orientation) {
-                    throw new Error('缺少必要的特征数据');
+                if (!features.center) {
+                    console.error('Missing center:', features);
+                    throw new Error('缺少中心点数据');
+                }
+                if (!features.major_axis) {
+                    console.error('Missing major_axis:', features);
+                    throw new Error('缺少主轴数据');
+                }
+                if (!features.minor_axis) {
+                    console.error('Missing minor_axis:', features);
+                    throw new Error('缺少次轴数据');
+                }
+                if (typeof features.orientation !== 'number') {
+                    console.error('Invalid orientation:', features);
+                    throw new Error('无效的方向角度数据');
                 }
                 
                 // 获取中心点和轴长
                 const center = Array.isArray(features.center) ? features.center : [features.center.x, features.center.y];
-                const majorAxis = features.major_axis;
-                const minorAxis = features.minor_axis;
+                const majorAxis = Math.abs(features.major_axis);
+                const minorAxis = Math.abs(features.minor_axis);
                 const orientation = features.orientation * Math.PI / 180; // 转换为弧度
+                
+                console.log('Processed values:', {
+                    center,
+                    majorAxis,
+                    minorAxis,
+                    orientation
+                });
                 
                 // 计算缩放因子
                 const scale = Math.min(canvas.width, canvas.height) / (2 * Math.max(majorAxis, minorAxis));
@@ -469,6 +501,12 @@
                 }
                 ctx.closePath();
                 ctx.stroke();
+                
+                // 绘制中心点
+                ctx.beginPath();
+                ctx.fillStyle = '#ff0000';
+                ctx.arc(centerX, centerY, 3, 0, 2 * Math.PI);
+                ctx.fill();
                 
             } catch (error) {
                 console.error('绘制几何形状时发生错误:', error);

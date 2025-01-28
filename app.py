@@ -143,8 +143,12 @@ def analyze_image():
                         }
                     }
                     
-                    # 验证数据
-                    logger.debug(f"返回数据结构: {response_data}")
+                    # 添加详细的数据验证日志
+                    logger.debug("轮廓点数据类型: %s", type(results['轮廓点']))
+                    logger.debug("轮廓点示例: %s", str(results['轮廓点'][:5]) if len(results['轮廓点']) > 5 else str(results['轮廓点']))
+                    logger.debug("形状特征数据: %s", str(response_data['results']['shape_features']))
+                    logger.debug("返回数据结构: %s", str(response_data))
+                    
                     return jsonify(response_data)
                     
                 except Exception as e:
