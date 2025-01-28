@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>花朵形状分析</title>
+    <style>
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .upload-form {
+            margin-bottom: 20px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .results {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        .result-item {
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        canvas {
+            border: 1px solid #eee;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>花朵形状分析系统</h1>
+        
+        <div class="upload-form">
+            <form id="uploadForm" enctype="multipart/form-data">
+                <input type="file" name="image" accept="image/*" required>
+                <button type="submit">分析图片</button>
+            </form>
+        </div>
+        
+        <div class="results">
+            <div class="result-item">
+                <h3>原始图片与轮廓</h3>
+                <canvas id="originalCanvas"></canvas>
+            </div>
+            <div class="result-item">
+                <h3>几何形状线条</h3>
+                <canvas id="shapeCanvas"></canvas>
+            </div>
+            <div class="result-item">
+                <h3>形状特征</h3>
+                <div id="shapeFeatures"></div>
+            </div>
+            <div class="result-item">
+                <h3>内部结构</h3>
+                <canvas id="innerStructureCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                if (data.status === 'success') {
+                    // 更新画布显示
+                    updateCanvases(data.results);
+                    // 显示特征数据
+                    displayFeatures(data.results);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('分析过程中出现错误');
+            }
+        };
+
+        function updateCanvases(results) {
+            // 更新原始图片与轮廓
+            const originalCanvas = document.getElementById('originalCanvas');
+            const ctx = originalCanvas.getContext('2d');
+            drawContours(ctx, results.contours, results.image);
+            
+            // 更新几何形状线条
+            const shapeCanvas = document.getElementById('shapeCanvas');
+            const shapeCtx = shapeCanvas.getContext('2d');
+            drawGeometricShape(shapeCtx, results.shape_features);
+            
+            // 更新内部结构
+            const innerCanvas = document.getElementById('innerStructureCanvas');
+            const innerCtx = innerCanvas.getContext('2d');
+            drawInnerStructure(innerCtx, results.inner_structure);
+        }
+
+        function displayFeatures(results) {
+            const featuresDiv = document.getElementById('shapeFeatures');
+            featuresDiv.innerHTML = `
+                <p>圆度: ${results.circularity.toFixed(3)}</p>
+                <p>对称性: ${results.symmetry.toFixed(3)}</p>
+                <p>规则度: ${results.regularity.toFixed(3)}</p>
+                <p>内部区域数: ${results.inner_regions}</p>
+            `;
+        }
+    </script>
+</body>
+</html> 
