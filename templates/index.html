@@ -354,8 +354,26 @@
                 // 开始绘制轮廓
                 ctx.beginPath();
                 
-                // 计算缩放因子
-                const points = contours;
+                // 提取坐标点
+                const points = [];
+                contours.forEach(point => {
+                    // 处理不同的数据格式
+                    if (Array.isArray(point) && point.length === 2) {
+                        // 直接是 [x, y] 格式
+                        points.push(point);
+                    } else if (Array.isArray(point) && point.length === 1 && Array.isArray(point[0]) && point[0].length === 2) {
+                        // OpenCV格式 [[x, y]] 
+                        points.push(point[0]);
+                    } else {
+                        console.warn('跳过无效的点:', point);
+                    }
+                });
+                
+                if (points.length === 0) {
+                    throw new Error('没有有效的轮廓点');
+                }
+                
+                // 计算边界框
                 const xValues = points.map(p => p[0]);
                 const yValues = points.map(p => p[1]);
                 const minX = Math.min(...xValues);
@@ -363,14 +381,21 @@
                 const minY = Math.min(...yValues);
                 const maxY = Math.max(...yValues);
                 
-                const scaleX = (canvas.width - 40) / (maxX - minX);
-                const scaleY = (canvas.height - 40) / (maxY - minY);
-                const scale = Math.min(scaleX, scaleY);
+                // 计算缩放和偏移
+                const width = maxX - minX;
+                const height = maxY - minY;
+                const scale = Math.min(
+                    (canvas.width - 40) / width,
+                    (canvas.height - 40) / height
+                );
+                
+                const offsetX = (canvas.width - width * scale) / 2;
+                const offsetY = (canvas.height - height * scale) / 2;
                 
                 // 绘制轮廓
                 points.forEach((point, index) => {
-                    const x = (point[0] - minX) * scale + 20;
-                    const y = (point[1] - minY) * scale + 20;
+                    const x = (point[0] - minX) * scale + offsetX;
+                    const y = (point[1] - minY) * scale + offsetY;
                     
                     if (index === 0) {
                         ctx.moveTo(x, y);
@@ -381,51 +406,75 @@
                 
                 ctx.closePath();
                 ctx.stroke();
+                
+                // 添加调试信息
+                console.log('轮廓点数量:', points.length);
+                console.log('缩放比例:', scale);
+                console.log('边界框:', { minX, maxX, minY, maxY });
+                
             } catch (error) {
                 console.error('绘制轮廓时发生错误:', error);
+                console.error('轮廓数据:', contours);
                 throw error;
             }
         }
 
         function drawGeometricShape(canvas, features) {
-            const ctx = canvas.getContext('2d');
-            
-            // 设置画布大小
-            canvas.width = 400;
-            canvas.height = 400;
-            
-            // 清空画布
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // 获取中心点和轴长
-            const center = features.center;
-            const majorAxis = features.major_axis;
-            const minorAxis = features.minor_axis;
-            const orientation = features.orientation * Math.PI / 180; // 转换为弧度
-            
-            // 绘制主轴和次轴
-            ctx.strokeStyle = '#2ecc71';
-            ctx.lineWidth = 2;
-            
-            // 绘制椭圆
-            ctx.beginPath();
-            for (let angle = 0; angle <= 2 * Math.PI; angle += 0.01) {
-                const x = center[0] + majorAxis * Math.cos(angle) * Math.cos(orientation) -
-                         minorAxis * Math.sin(angle) * Math.sin(orientation);
-                const y = center[1] + majorAxis * Math.cos(angle) * Math.sin(orientation) +
-                         minorAxis * Math.sin(angle) * Math.cos(orientation);
-                
-                const scaledX = (x / 1000) * canvas.width;
-                const scaledY = (y / 1000) * canvas.height;
-                
-                if (angle === 0) {
-                    ctx.moveTo(scaledX, scaledY);
-                } else {
-                    ctx.lineTo(scaledX, scaledY);
+            try {
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    throw new Error('无法获取画布上下文');
                 }
+                
+                // 设置画布大小
+                canvas.width = 400;
+                canvas.height = 400;
+                
+                // 清空画布
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // 验证特征数据
+                if (!features.center || !features.major_axis || !features.minor_axis || !features.orientation) {
+                    throw new Error('缺少必要的特征数据');
+                }
+                
+                // 获取中心点和轴长
+                const center = Array.isArray(features.center) ? features.center : [features.center.x, features.center.y];
+                const majorAxis = features.major_axis;
+                const minorAxis = features.minor_axis;
+                const orientation = features.orientation * Math.PI / 180; // 转换为弧度
+                
+                // 计算缩放因子
+                const scale = Math.min(canvas.width, canvas.height) / (2 * Math.max(majorAxis, minorAxis));
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                
+                // 绘制主轴和次轴
+                ctx.strokeStyle = '#2ecc71';
+                ctx.lineWidth = 2;
+                
+                // 绘制椭圆
+                ctx.beginPath();
+                for (let angle = 0; angle <= 2 * Math.PI; angle += 0.01) {
+                    const x = centerX + scale * (majorAxis * Math.cos(angle) * Math.cos(orientation) -
+                             minorAxis * Math.sin(angle) * Math.sin(orientation));
+                    const y = centerY + scale * (majorAxis * Math.cos(angle) * Math.sin(orientation) +
+                             minorAxis * Math.sin(angle) * Math.cos(orientation));
+                    
+                    if (angle === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                ctx.closePath();
+                ctx.stroke();
+                
+            } catch (error) {
+                console.error('绘制几何形状时发生错误:', error);
+                console.error('特征数据:', features);
+                throw error;
             }
-            ctx.closePath();
-            ctx.stroke();
         }
 
         function drawInnerStructure(canvas, structure) {

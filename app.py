@@ -122,7 +122,7 @@ def analyze_image():
                     response_data = {
                         'status': 'success',
                         'results': {
-                            'contours': results['轮廓点'].tolist() if isinstance(results['轮廓点'], np.ndarray) else results['轮廓点'],
+                            'contours': [point[0].tolist() for point in results['轮廓点']] if isinstance(results['轮廓点'], np.ndarray) else results['轮廓点'],
                             'circularity': float(results['圆度']),
                             'symmetry': float(1 - results['对称性指数']),
                             'regularity': float(results['形状规则度']),
@@ -131,7 +131,10 @@ def analyze_image():
                                 'major_axis': float(results['主轴长度']),
                                 'minor_axis': float(results['次轴长度']),
                                 'orientation': float(results['方向角度']),
-                                'center': results['轮廓点'].mean(axis=0)[0].tolist() if isinstance(results['轮廓点'], np.ndarray) else results['轮廓点'][0]
+                                'center': results['轮廓点'].mean(axis=0)[0].tolist() if isinstance(results['轮廓点'], np.ndarray) else [
+                                    float(results['轮廓点'][0][0][0]),
+                                    float(results['轮廓点'][0][0][1])
+                                ]
                             },
                             'inner_structure': {
                                 'labels': results['内部分析']['labels'].tolist() if isinstance(results['内部分析']['labels'], np.ndarray) else results['内部分析']['labels'],
