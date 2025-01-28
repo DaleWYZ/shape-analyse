@@ -14,132 +14,140 @@ from skimage.color import rgb2gray
 import matplotlib.patches as patches
 from matplotlib.path import Path
 import matplotlib.colors as mcolors
+import logging
+import traceback
+
+logger = logging.getLogger(__name__)
 
 def analyze_inner_structure(image_path):
-    # 读取并预处理图像
-    img = cv2.imread(image_path)
-    if img is None:
-        raise ValueError("无法读取图像文件")
-    
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    
-    # 1. 内部区域分割
-    distance = ndi.distance_transform_edt(gray)
-    
-    # 修改 peak_local_max 的调用方式
-    coordinates = peak_local_max(distance, min_distance=20)
-    local_max = np.zeros_like(distance, dtype=bool)
-    local_max[tuple(coordinates.T)] = True
-    
-    markers, num_features = ndi.label(local_max)
-    labels = watershed(-distance, markers, mask=gray)
-    
-    # 2. 纹理特征提取
-    gabor_responses = []
-    for theta in range(4):  # 不同方向的纹理
-        filt_real, filt_imag = gabor(gray, frequency=0.6,
-                                   theta=theta * np.pi/4)
-        gabor_responses.append(filt_real)
-    
-    return {
-        'labels': labels,
-        'texture_features': np.array(gabor_responses)
-    }
+    """分析图像的内部结构"""
+    logger.info("开始分析内部结构")
+    try:
+        # 读取并预处理图像
+        img = cv2.imread(image_path)
+        if img is None:
+            raise ValueError("无法读取图像文件")
+        
+        logger.debug("转换图像为灰度")
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        
+        # 1. 内部区域分割
+        logger.debug("计算距离变换")
+        distance = ndi.distance_transform_edt(gray)
+        
+        logger.debug("检测局部最大值")
+        coordinates = peak_local_max(distance, min_distance=20)
+        local_max = np.zeros_like(distance, dtype=bool)
+        local_max[tuple(coordinates.T)] = True
+        
+        logger.debug("执行分水岭分割")
+        markers, num_features = ndi.label(local_max)
+        labels = watershed(-distance, markers, mask=gray)
+        
+        # 2. 纹理特征提取
+        logger.debug("提取Gabor纹理特征")
+        gabor_responses = []
+        for theta in range(4):  # 不同方向的纹理
+            filt_real, filt_imag = gabor(gray, frequency=0.6,
+                                       theta=theta * np.pi/4)
+            gabor_responses.append(filt_real)
+        
+        logger.info("内部结构分析完成")
+        return {
+            'labels': labels,
+            'texture_features': np.array(gabor_responses)
+        }
+    except Exception as e:
+        logger.error(f"分析内部结构时发生错误: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise
 
 def analyze_shape(image_path):
-    # 读取图像
-    img = cv2.imread(image_path)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    """分析图像中的形状特征"""
+    logger.info(f"开始分析形状: {image_path}")
+    try:
+        # 读取图像
+        img = cv2.imread(image_path)
+        if img is None:
+            raise ValueError("无法读取图像文件")
+        
+        logger.debug("转换为灰度图像")
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        
+        # 图像预处理
+        logger.debug("执行高斯模糊")
+        blur = cv2.GaussianBlur(gray, (5, 5), 0)
+        
+        logger.debug("执行阈值分割")
+        _, thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        
+        # 找到轮廓
+        logger.debug("查找轮廓")
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        if len(contours) > 0:
+            # 获取最大轮廓
+            main_contour = max(contours, key=cv2.contourArea)
+            
+            # 计算基本特征
+            logger.debug("计算基本形状特征")
+            area = cv2.contourArea(main_contour)
+            perimeter = cv2.arcLength(main_contour, True)
+            
+            # 拟合椭圆
+            ellipse = cv2.fitEllipse(main_contour)
+            
+            # 计算圆度
+            circularity = 4 * np.pi * area / (perimeter * perimeter)
+            
+            # 计算长宽比
+            _, (width, height), _ = ellipse
+            aspect_ratio = max(width, height) / min(width, height)
+            
+            logger.debug("计算高级形状特征")
+            # 转换为二值图像用于scikit-image分析
+            binary = thresh > 0
+            label_img = measure.label(binary)
+            regions = regionprops(label_img)
+            main_region = regions[0]
+            
+            # 添加内部结构分析
+            logger.debug("分析内部结构")
+            inner_analysis = analyze_inner_structure(image_path)
+            
+            # 计算内部子区域的特征
+            unique_regions = len(np.unique(inner_analysis['labels'])) - 1
+            
+            # 计算纹理复杂度
+            texture_complexity = np.mean([np.std(resp) for resp in inner_analysis['texture_features']])
+            
+            logger.info("形状分析完成")
+            return {
+                "面积": area,
+                "周长": perimeter,
+                "圆度": circularity,
+                "长宽比": aspect_ratio,
+                "轮廓点": main_contour,
+                "方向角度": np.degrees(main_region.orientation),
+                "偏心率": main_region.eccentricity,
+                "等效直径": main_region.equivalent_diameter,
+                "致密度": main_region.solidity,
+                "主轴长度": main_region.major_axis_length,
+                "次轴长度": main_region.minor_axis_length,
+                "形状规则度": main_region.extent,
+                "对称性指数": main_region.eccentricity,
+                "内部区域数量": unique_regions,
+                "纹理复杂度": texture_complexity,
+                "内部分析": inner_analysis
+            }
+        
+        logger.warning("未找到有效轮廓")
+        return None
     
-    # 图像预处理
-    blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    _, thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    
-    # 找到轮廓
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
-    if len(contours) > 0:
-        # 获取最大轮廓
-        main_contour = max(contours, key=cv2.contourArea)
-        
-        # 计算基本特征
-        area = cv2.contourArea(main_contour)
-        perimeter = cv2.arcLength(main_contour, True)
-        
-        # 拟合椭圆
-        ellipse = cv2.fitEllipse(main_contour)
-        
-        # 计算圆度
-        circularity = 4 * np.pi * area / (perimeter * perimeter)
-        
-        # 计算长宽比
-        _, (width, height), _ = ellipse
-        aspect_ratio = max(width, height) / min(width, height)
-        
-        # 转换为二值图像用于scikit-image分析
-        binary = thresh > 0
-        label_img = measure.label(binary)
-        regions = regionprops(label_img)
-        main_region = regions[0]
-        
-        # 计算更多的形状特征
-        # 1. 计算方向
-        orientation = main_region.orientation
-        
-        # 2. 计算偏心率
-        eccentricity = main_region.eccentricity
-        
-        # 3. 计算等效直径
-        equivalent_diameter = main_region.equivalent_diameter
-        
-        # 4. 计算形状的凸包
-        convex_area = main_region.convex_area
-        solidity = area / convex_area
-        
-        # 5. 计算形状的主轴长度
-        major_axis_length = main_region.major_axis_length
-        minor_axis_length = main_region.minor_axis_length
-        
-        # 6. 计算形状的不规则度
-        extent = area / (major_axis_length * minor_axis_length * np.pi / 4)
-        
-        # 7. 计算形状的对称性
-        centroid = main_region.centroid
-        coords = main_region.coords
-        dists = np.sqrt(np.sum((coords - centroid)**2, axis=1))
-        symmetry = np.std(dists) / np.mean(dists)
-        
-        # 添加内部结构分析
-        inner_analysis = analyze_inner_structure(image_path)
-        
-        # 计算内部子区域的特征
-        unique_regions = len(np.unique(inner_analysis['labels'])) - 1  # 减去背景
-        
-        # 计算纹理复杂度
-        texture_complexity = np.mean([np.std(resp) for resp in inner_analysis['texture_features']])
-        
-        results = {
-            "面积": area,
-            "周长": perimeter,
-            "圆度": circularity,
-            "长宽比": aspect_ratio,
-            "轮廓点": main_contour,
-            "方向角度": np.degrees(orientation),
-            "偏心率": eccentricity,
-            "等效直径": equivalent_diameter,
-            "致密度": solidity,
-            "主轴长度": major_axis_length,
-            "次轴长度": minor_axis_length,
-            "形状规则度": extent,
-            "对称性指数": symmetry,
-            "内部区域数量": unique_regions,
-            "纹理复杂度": texture_complexity,
-            "内部分析": inner_analysis
-        }
-        
-        return results
-    
-    return None
+    except Exception as e:
+        logger.error(f"分析形状时发生错误: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise
 
 def create_radar_chart(results, ax):
     # 定义要展示的特征和对应的最大值

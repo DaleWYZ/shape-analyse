@@ -13,6 +13,10 @@ RUN groupadd -g 2000 appgroup && \
 # 设置工作目录
 WORKDIR /app
 
+# 创建日志目录
+RUN mkdir -p /app/logs && \
+    chown -R appuser:appgroup /app/logs
+
 # 复制依赖文件
 COPY requirements.txt .
 

@@ -289,17 +289,142 @@
             // 更新原始图片与轮廓
             const originalCanvas = document.getElementById('originalCanvas');
             const ctx = originalCanvas.getContext('2d');
-            drawContours(ctx, results.contours, results.image);
+            drawContours(originalCanvas, results.contours);
             
             // 更新几何形状线条
             const shapeCanvas = document.getElementById('shapeCanvas');
-            const shapeCtx = shapeCanvas.getContext('2d');
-            drawGeometricShape(shapeCtx, results.shape_features);
+            drawGeometricShape(shapeCanvas, results.shape_features);
             
             // 更新内部结构
             const innerCanvas = document.getElementById('innerStructureCanvas');
-            const innerCtx = innerCanvas.getContext('2d');
-            drawInnerStructure(innerCtx, results.inner_structure);
+            drawInnerStructure(innerCanvas, results.inner_structure);
+        }
+
+        function drawContours(canvas, contours) {
+            const ctx = canvas.getContext('2d');
+            
+            // 设置画布大小
+            canvas.width = 400;
+            canvas.height = 400;
+            
+            // 清空画布
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 设置轮廓样式
+            ctx.strokeStyle = '#4a90e2';
+            ctx.lineWidth = 2;
+            
+            // 开始绘制轮廓
+            ctx.beginPath();
+            
+            // 遍历轮廓点
+            contours.forEach((point, index) => {
+                const [x, y] = point[0];
+                const scaledX = (x / 1000) * canvas.width;
+                const scaledY = (y / 1000) * canvas.height;
+                
+                if (index === 0) {
+                    ctx.moveTo(scaledX, scaledY);
+                } else {
+                    ctx.lineTo(scaledX, scaledY);
+                }
+            });
+            
+            // 闭合路径
+            ctx.closePath();
+            ctx.stroke();
+        }
+
+        function drawGeometricShape(canvas, features) {
+            const ctx = canvas.getContext('2d');
+            
+            // 设置画布大小
+            canvas.width = 400;
+            canvas.height = 400;
+            
+            // 清空画布
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 获取中心点和轴长
+            const center = features.center;
+            const majorAxis = features.major_axis;
+            const minorAxis = features.minor_axis;
+            const orientation = features.orientation * Math.PI / 180; // 转换为弧度
+            
+            // 绘制主轴和次轴
+            ctx.strokeStyle = '#2ecc71';
+            ctx.lineWidth = 2;
+            
+            // 绘制椭圆
+            ctx.beginPath();
+            for (let angle = 0; angle <= 2 * Math.PI; angle += 0.01) {
+                const x = center[0] + majorAxis * Math.cos(angle) * Math.cos(orientation) -
+                         minorAxis * Math.sin(angle) * Math.sin(orientation);
+                const y = center[1] + majorAxis * Math.cos(angle) * Math.sin(orientation) +
+                         minorAxis * Math.sin(angle) * Math.cos(orientation);
+                
+                const scaledX = (x / 1000) * canvas.width;
+                const scaledY = (y / 1000) * canvas.height;
+                
+                if (angle === 0) {
+                    ctx.moveTo(scaledX, scaledY);
+                } else {
+                    ctx.lineTo(scaledX, scaledY);
+                }
+            }
+            ctx.closePath();
+            ctx.stroke();
+        }
+
+        function drawInnerStructure(canvas, structure) {
+            const ctx = canvas.getContext('2d');
+            
+            // 设置画布大小
+            canvas.width = 400;
+            canvas.height = 400;
+            
+            // 清空画布
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 获取标签数据
+            const labels = structure.labels;
+            const maxLabel = Math.max(...labels.flat());
+            
+            // 为每个区域创建随机颜色
+            const colors = Array.from({length: maxLabel + 1}, () => {
+                return `rgb(${Math.random() * 255},${Math.random() * 255},${Math.random() * 255})`;
+            });
+            
+            // 创建图像数据
+            const imageData = ctx.createImageData(canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            // 缩放因子
+            const scaleX = canvas.width / labels[0].length;
+            const scaleY = canvas.height / labels.length;
+            
+            // 填充图像数据
+            for (let y = 0; y < canvas.height; y++) {
+                for (let x = 0; x < canvas.width; x++) {
+                    const labelX = Math.floor(x / scaleX);
+                    const labelY = Math.floor(y / scaleY);
+                    
+                    if (labelX < labels[0].length && labelY < labels.length) {
+                        const label = labels[labelY][labelX];
+                        const color = colors[label];
+                        const rgb = color.match(/\d+/g).map(Number);
+                        
+                        const idx = (y * canvas.width + x) * 4;
+                        data[idx] = rgb[0];     // R
+                        data[idx + 1] = rgb[1]; // G
+                        data[idx + 2] = rgb[2]; // B
+                        data[idx + 3] = 255;    // A
+                    }
+                }
+            }
+            
+            // 将图像数据绘制到画布上
+            ctx.putImageData(imageData, 0, 0);
         }
 
         function updateFeatures(results) {
